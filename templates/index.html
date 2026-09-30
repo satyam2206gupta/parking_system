@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking Management System</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        #auth-container {
+            max-width: 400px;
+            margin: 80px auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        #auth-container h2 { text-align: center; color: var(--primary); margin-bottom: 20px; }
+        .tab-buttons { display: flex; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+        .tab-btn { flex: 1; padding: 10px; background: none; border: none; font-weight: bold; cursor: pointer; color: var(--text-muted); }
+        .tab-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); margin-bottom: -2px; }
+
+        #dashboard-container { display: none; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; background: var(--card-bg); padding: 15px 25px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        header h1 { color: var(--primary); font-size: 1.8rem; }
+        .logout-btn { background: var(--danger); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+
+        .dashboard-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: var(--card-bg); padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; }
+        .stat-card h3 { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; }
+        .stat-card span { font-size: 1.6rem; font-weight: bold; }
+
+        .main-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 30px; margin-bottom: 30px; }
+        @media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } }
+
+        .card { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 30px;}
+        .card h2 { margin-bottom: 20px; font-size: 1.3rem; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9rem; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+
+        .btn { background-color: var(--primary); color: white; border: none; width: 100%; padding: 12px; font-size: 1rem; font-weight: 600; border-radius: 6px; cursor: pointer; }
+        .btn:hover { background-color: var(--primary-hover); }
+
+        .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; }
+        .slot-box { border-radius: 8px; padding: 12px; text-align: center; border: 2px solid transparent; display: flex; flex-direction: column; justify-content: space-between; }
+        .slot-box.available { background-color: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+        .slot-box.occupied { background-color: #fef2f2; border-color: #fecaca; color: #991b1b; }
+        .slot-box p { font-size: 0.75rem; margin: 4px 0; word-break: break-all; }
+        
+        /* Select Button for Manual Picking */
+        .btn-select { background-color: var(--success); color: white; border: none; padding: 5px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; margin-top: 5px; font-weight: bold; }
+        .btn-select:hover { background-color: #059669; }
+        
+        .btn-exit { background-color: var(--danger); color: white; border: none; padding: 5px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; margin-top: 5px; font-weight: bold; }
+        .btn-exit:hover { background-color: #dc2626; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #f1f5f9; color: var(--text-main); }
+
+        #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 10px; text-align: center; max-width: 320px; width: 100%; }
+        .modal-content img { margin: 15px 0; width: 200px; height: 200px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- AUTHENTICATION SCREEN -->
+        <div id="auth-container">
+            <h2>Parking System Portal</h2>
+            <div class="tab-buttons">
+                <button type="button" class="tab-btn active" onclick="switchTab('login')">Login</button>
+                <button type="button" class="tab-btn" onclick="switchTab('signup')">Create Account</button>
+            </div>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="login-user" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-pass" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+
+            <form id="signup-form" style="display: none;">
+                <div class="form-group">
+                    <label>Choose Username</label>
+                    <input type="text" id="signup-user" required>
+                </div>
+                <div class="form-group">
+                    <label>Choose Password</label>
+                    <input type="password" id="signup-pass" required>
+                </div>
+                <button type="submit" class="btn" style="background-color: var(--success);">Create Account</button>
+            </form>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div id="dashboard-container">
+            <header>
+                <div>
+                    <h1>Dashboard</h1>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Welcome, <span id="user-display" style="font-weight: bold; color: var(--primary);"></span></p>
+                </div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </header>
+
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <h3>Available Slots</h3>
+                    <span id="available-slots" style="color: var(--success);">0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Occupied Slots</h3>
+                    <span id="occupied-slots" style="color: var(--danger);">0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Revenue</h3>
+                    <span id="total-revenue" style="color: var(--primary);">₹0.00</span>
+                </div>
+            </div>
+
+            <div class="main-grid">
+                <!-- Entry Form -->
+                <div class="card" style="margin-bottom: 0;">
+                    <h2>Vehicle Entry</h2>
+                    <form id="park-form">
+                        <div class="form-group">
+                            <label>Selected Slot</label>
+                            <input type="text" id="selected-slot-display" placeholder="Click 'Select Slot' from the grid" readonly style="background-color: #f1f5f9; font-weight: bold; color: var(--primary);" required>
+                            <input type="hidden" id="selected_slot_id">
+                        </div>
+                        <div class="form-group">
+                            <label>Vehicle Number Plate</label>
+                            <input type="text" id="vehicle_number" placeholder="e.g. MH-02-AB-1234" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Vehicle Type</label>
+                            <select id="vehicle_type" required>
+                                <option value="">Select Type</option>
+                                <option value="Car">Car</option>
+                                <option value="SUV">SUV</option>
+                                <option value="Bike">Bike</option>
+                                <option value="Truck">Truck</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn">Park Vehicle</button>
+                    </form>
+                </div>
+
+                <!-- Slot Selection Grid -->
+                <div class="card" style="margin-bottom: 0;">
+                    <h2>Click Slot to Assign</h2>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Choose an available slot manually below:</p>
+                    <div id="slots-container" class="slots-grid"></div>
+                </div>
+            </div>
+
+            <!-- History Logs -->
+            <div class="card">
+                <h2>Parking History & Revenue Logs</h2>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Vehicle No.</th>
+                                <th>Type</th>
+                                <th>Slot</th>
+                                <th>Check-in Time</th>
+                                <th>Check-out Time</th>
+                                <th>Duration</th>
+                                <th>Fee Paid</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal">
+        <div class="modal-content">
+            <h3>Scan & Pay (UPI)</h3>
+            <p id="qr-fee-text" style="font-size: 1.2rem; font-weight: bold; margin-top: 5px; color: var(--primary);"></p>
+            <img id="qr-code-img" src="" alt="UPI Payment QR Code">
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 15px;">Scan using GooglePay, PhonePe, or Paytm</p>
+            <button class="btn" onclick="closeQRModal()">Payment Completed & Exit</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+        let activeSlotsData = [];
+
+        function switchTab(tab) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(b => b.classList.remove('active'));
+            if (tab === 'login') {
+                buttons[0].classList.add('active');
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('signup-form').style.display = 'none';
+            } else {
+                buttons[1].classList.add('active');
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('signup-form').style.display = 'block';
+            }
+        }
+
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch(`${API_URL}/signup`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('signup-user').value.trim(),
+                    password: document.getElementById('signup-pass').value.trim()
+                })
+            });
+            const data = await res.json();
+            if (res.ok) { alert(data.message); switchTab('login'); }
+            else { alert(data.error); }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('login-user').value.trim(),
+                    password: document.getElementById('login-pass').value.trim()
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('dashboard-container').style.display = 'block';
+                document.getElementById('user-display').innerText = data.username;
+                loadDashboardData();
+            } else { alert(data.error); }
+        });
+
+        function logout() {
+            document.getElementById('auth-container').style.display = 'block';
+            document.getElementById('dashboard-container').style.display = 'none';
+            document.getElementById('login-form').reset();
+        }
+
+        async function loadDashboardData() {
+            await fetchSlots();
+            await fetchHistory();
+        }
+
+        async function fetchSlots() {
+            try {
+                const res = await fetch(`${API_URL}/slots`);
+                activeSlotsData = await res.json();
+                
+                let available = activeSlotsData.filter(s => s.status === 'Available').length;
+                let occupied = activeSlotsData.length - available;
+                document.getElementById('available-slots').innerText = available;
+                document.getElementById('occupied-slots').innerText = occupied;
+
+                const container = document.getElementById('slots-container');
+                container.innerHTML = '';
+                
+                activeSlotsData.forEach(slot => {
+                    const div = document.createElement('div');
+                    div.className = `slot-box ${slot.status.toLowerCase()}`;
+                    if (slot.status === 'Occupied') {
+                        let entryShort = slot.entry_time ? slot.entry_time.split(' ')[1] : '';
+                        div.innerHTML = `
+                            <div>
+                                <strong>${slot.slot_number}</strong>
+                                <p>${slot.vehicle_number}</p>
+                                <p style="font-size:0.6rem;">In: ${entryShort}</p>
+                            </div>
+                            <button class="btn-exit" onclick="initiateCheckout(${slot.id})">Checkout</button>
+                        `;
+                    } else {
+                        div.innerHTML = `
+                            <div>
+                                <strong>${slot.slot_number}</strong>
+                                <p style="margin-top:5px; font-size: 0.7rem;">Vacant</p>
+                            </div>
+                            <button class="btn-select" onclick="selectSlotForParking(${slot.id})">Select Slot</button>
+                        `;
+                    }
+                    container.appendChild(div);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function selectSlotForParking(slotId) {
+            const slot = activeSlotsData.find(s => s.id === slotId);
+            if (slot) {
+                document.getElementById('selected_slot_id').value = slot.id;
+                document.getElementById('selected-slot-display').value = slot.slot_number;
+                alert(`Selected ${slot.slot_number}. Now enter vehicle details and click Park.`);
+            }
+        }
+
+        async function fetchHistory() {
+            try {
+                const res = await fetch(`${API_URL}/history`);
+                const data = await res.json();
+                
+                document.getElementById('total-revenue').innerText = `₹${data.total_revenue.toFixed(2)}`;
+                const tbody = document.getElementById('history-table-body');
+                tbody.innerHTML = '';
+
+                data.history.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.vehicle_number}</td>
+                        <td>${item.vehicle_type}</td>
+                        <td>${item.slot_number}</td>
+                        <td>${item.entry_time}</td>
+                        <td>${item.exit_time}</td>
+                        <td>${item.duration_hours} hrs</td>
+                        <td style="font-weight: bold; color: var(--success);">₹${item.fee.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('park-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const slot_id = document.getElementById('selected_slot_id').value;
+            const vehicle_number = document.getElementById('vehicle_number').value.trim();
+            const vehicle_type = document.getElementById('vehicle_type').value;
+
+            if (!slot_id) {
+                alert('Please click "Select Slot" on an available slot from the grid first!');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/park`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({slot_id, vehicle_number, vehicle_type})
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message);
+                    document.getElementById('park-form').reset();
+                    document.getElementById('selected_slot_id').value = '';
+                    loadDashboardData();
+                } else { alert(data.error); }
+            } catch (e) { console.error(e); }
+        });
+
+        async function initiateCheckout(slotId) {
+            try {
+                const res = await fetch(`${API_URL}/exit/${slotId}`, { method: 'POST' });
+                const data = await res.json();
+
+                if (res.ok) {
+                    document.getElementById('qr-fee-text').innerText = `Total Fee: ₹${data.fee.toFixed(2)} (${data.duration_hours} hrs)`;
+                    // UPI payment string format
+                    const upiString = `upi://pay?pa=parking@ybl&pn=SmartParking&am=${data.fee}&cu=INR`;
+                    document.getElementById('qr-code-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
+                    
+                    document.getElementById('qr-modal').style.display = 'flex';
+                    loadDashboardData();
+                } else { alert(data.error); }
+            } catch (e) { console.error(e); }
+        }
+
+        function closeQRModal() {
+            document.getElementById('qr-modal').style.display = 'none';
+        }
+
+        setInterval(fetchSlots, 10000);
+    </script>
+</body>
+</html>
